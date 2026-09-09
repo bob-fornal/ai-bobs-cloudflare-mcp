@@ -35,16 +35,14 @@ Both the Markdown and the HTML are content, not application state: they ship in 
 
 ### 5.1 Components
 
-- **Worker (`src/index.ts`)** — thin entry point. Every request is routed to a single, fixed-name Durable Object instance (a singleton, e.g. `idFromName("singleton")`). The Worker itself holds no logic beyond routing.
-- **Durable Object (`LearningsHub`, `src/learnings-hub.ts`)** — the whole service lives here:
-  - Extends Cloudflare's `McpAgent` (from the `agents` package) to get MCP Streamable HTTP transport handling for free, since `McpAgent` is itself Durable-Object-backed.
-  - Overrides `fetch()` to branch on path:
-    - `/mcp` (and any MCP sub-paths the SDK requires) → delegate to `McpAgent`'s built-in MCP handling.
-    - `/` (anything else, i.e. a plain browser GET) → read the stored HTML from Durable Object storage and return it directly.
-  - Registers MCP capabilities in its `init()`/`server` setup:
-    - **Resource**: `cloudflare-learnings` — `text/markdown`, returns the stored Markdown.
-    - **Tool**: `get_cloudflare_learnings` — no input, returns the same Markdown as tool output.
-  - On construction (or on first request), checks a stored content version against the build-time version constant; if they differ (including "not yet seeded"), overwrites storage with the bundled Markdown/HTML and updates the stored version.
+- **Worker (`src/index.ts`)** — the entry point, and where all MCP protocol logic lives. Routes `/mcp` to a stateless MCP handler and `/` to the stored HTML; holds no content itself.
+- **Durable Object (`LearningsHub`, `src/learnings-hub.ts`)** — pure storage, no MCP awareness:
+  - A plain `DurableObject` subclass (not `McpAgent` — see note below) exposing two RPC methods callable directly on its stub: `getMarkdown()` and `getHtml()`.
+  - On first call, checks a stored content version against the build-time `CONTENT_VERSION` constant; if they differ (including "not yet seeded"), overwrites storage with the bundled Markdown/HTML and updates the stored version.
+  - The Worker addresses a single, fixed-name instance (`idFromName("singleton")`) for the HTML path. Since content is identical and fully static, it doesn't matter whether MCP requests happen to hit that same instance or another — each independently self-seeds from the same bundled source.
+- **MCP layer (`src/index.ts`)** — uses Cloudflare's `createMcpHandler` (from `agents/mcp/server`, backed by `@modelcontextprotocol/server`) rather than `McpAgent`: **`McpAgent` is now deprecated and feature-frozen** (confirmed against Cloudflare's current Agents docs while implementing this) in favor of a stateless handler, which is also a better fit here since the content has no per-session state at all. A factory closure builds a fresh `McpServer` per request, registering:
+  - **Resource**: `cloudflare-learnings` (fixed URI `cloudflare-learnings://document`) — `text/markdown`, reads via the Durable Object stub's `getMarkdown()`.
+  - **Tool**: `get_cloudflare_learnings` — no input, returns the same Markdown via the same RPC call.
 
 ### 5.2 Content pipeline
 
@@ -122,8 +120,9 @@ The multi-file source layout and cross-link rewriting are purely a build-time/au
 
 - **Language:** TypeScript, strict mode (per global TypeScript conventions).
 - **Runtime constraints:** Web Standard APIs only — no Node built-ins (`fs`, `path`, native `crypto`); no `process.env` (use the `env` object passed to `fetch`).
-- **MCP SDK:** Cloudflare `agents` package (`McpAgent`) plus `@modelcontextprotocol/sdk` types as needed.
-- **Durable Objects:** one class (`LearningsHub`), one singleton instance for the whole service. Needs a `new_sqlite_classes` (or `new_classes`) migration entry in `wrangler.toml`.
+- **MCP SDK:** Cloudflare `agents` package's `createMcpHandler` (`agents/mcp/server`) plus `@modelcontextprotocol/server` (MCP SDK v2). Not `McpAgent` — deprecated/feature-frozen, and unnecessary here since the service has no per-session state.
+- **Durable Objects:** one class (`LearningsHub`), a plain `DurableObject` subclass (via `cloudflare:workers`) used purely for storage, addressed via `idFromName("singleton")`. Needs a `new_sqlite_classes` migration entry in `wrangler.toml`.
+- **Runtime note:** `compatibility_flags = ["nodejs_compat"]` is required — not by this project's own code, but because the `agents` package uses `node:async_hooks` internally for its MCP transport.
 - **Content build step:** a standalone script (`scripts/build-content.ts`, run via Node — this runs at build time on the developer/CI machine, not in the Worker runtime, so Node APIs are fine here) that merges `content/cloudflare_worker.agent.md` + `content/cloudflare/NN-*.md` in numeric-prefix order, rewrites cross-links to anchors, validates all links resolve, and writes `content/generated/cloudflare-learnings.md`. Wired in as a `predeploy`/`build` npm script so it always runs before `wrangler deploy`/`wrangler dev`.
 - **Bundling:** `wrangler.toml` module rules (or equivalent) to inline the *generated* merged `.md` file and `index.html` as text at build time.
 - **CORS:** since MCP clients and browsers both hit this Worker, responses should include permissive CORS headers on the `/mcp` path so browser-based MCP clients aren't blocked; the `/` HTML path doesn't need CORS.

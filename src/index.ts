@@ -15,14 +15,14 @@ function getLearningsHub(env: Env) {
 
 const RESOURCE_URI = "cloudflare-learnings://document";
 
-function createServerFactory(env: Env) {
-  return function createServer() {
-    const server = new McpServer({
+function createMcpFactory(env: Env) {
+  return function createMcp() {
+    const mcp = new McpServer({
       name: "bobs-cloudflare-mcp",
       version: "1.0.0",
     });
 
-    server.registerResource(
+    mcp.registerResource(
       "cloudflare-learnings",
       RESOURCE_URI,
       {
@@ -42,7 +42,7 @@ function createServerFactory(env: Env) {
       }),
     );
 
-    server.registerTool(
+    mcp.registerTool(
       "get_cloudflare_learnings",
       {
         description:
@@ -50,11 +50,11 @@ function createServerFactory(env: Env) {
         inputSchema: {},
       },
       async () => ({
-        content: [{ type: "text", text: await getLearningsHub(env).getMarkdown() }],
+        content: [{ type: "text" as const, text: await getLearningsHub(env).getMarkdown() }],
       }),
     );
 
-    return server;
+    return mcp;
   };
 }
 
@@ -63,7 +63,7 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/mcp") {
-      return createMcpHandler(createServerFactory(env), { route: "/mcp" })(request, env, ctx);
+      return createMcpHandler(createMcpFactory(env), { route: "/mcp" })(request, env, ctx);
     }
 
     if (url.pathname === "/") {

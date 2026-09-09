@@ -215,6 +215,91 @@
     padding-top: 0.15rem;
   }
 
+  .clients__list {
+    display: grid;
+    gap: var(--space-3);
+    margin: var(--space-4) 0 0;
+  }
+
+  .client {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  .client__summary {
+    cursor: pointer;
+    list-style: none;
+    padding: var(--space-3) var(--space-4);
+    font-weight: 600;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .client__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .client__summary::before {
+    content: "▸";
+    color: var(--color-primary);
+    transition: transform 0.15s ease;
+  }
+
+  .client[open] > .client__summary::before {
+    transform: rotate(90deg);
+  }
+
+  .client__body {
+    padding: 0 var(--space-4) var(--space-4);
+    color: var(--color-text-muted);
+  }
+
+  .client__body p {
+    margin: 0 0 var(--space-3);
+  }
+
+  .client__body p:last-child {
+    margin-bottom: 0;
+  }
+
+  .client__body ol,
+  .client__body ul {
+    margin: 0 0 var(--space-3);
+    padding-left: 1.25em;
+  }
+
+  .client__body li {
+    margin-bottom: var(--space-2);
+  }
+
+  .client__body pre {
+    background: var(--color-code-bg);
+    color: var(--color-code-text);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    overflow-x: auto;
+    font-size: var(--text-sm);
+  }
+
+  .client__body code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .client__body :not(pre) > code {
+    background: var(--color-bg);
+    border-radius: 0.25rem;
+    padding: 0.1em 0.35em;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .client__summary::before {
+      transition: transform 0.15s ease;
+    }
+  }
+
   .site-footer {
     text-align: center;
     color: var(--color-text-muted);
@@ -300,6 +385,70 @@
               <span class="connect__list-desc">Takes no arguments; returns the same document as tool output.</span>
             </li>
           </ul>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="clients-heading">
+        <h2 class="card__title" id="clients-heading">
+          <span class="card__title-icon" aria-hidden="true">🧩</span>Connect from your tool
+        </h2>
+        <div class="card__body">
+          <p>Step-by-step setup for common MCP clients. Replace the endpoint above with your own deployed URL.</p>
+          <div class="clients__list">
+            <details class="client">
+              <summary class="client__summary">Claude (Desktop or claude.ai)</summary>
+              <div class="client__body">
+                <ol>
+                  <li>Open <strong>Settings &rarr; Connectors</strong> (claude.ai) or <strong>Settings &rarr; Customize &rarr; Connectors</strong> (Claude Desktop).</li>
+                  <li>Choose <strong>Add custom connector</strong>.</li>
+                  <li>Paste the MCP URL above. Leave authentication blank &mdash; the server is public.</li>
+                </ol>
+              </div>
+            </details>
+
+            <details class="client">
+              <summary class="client__summary">Claude Code (CLI)</summary>
+              <div class="client__body">
+                <p>Run:</p>
+                <pre><code>claude mcp add --transport http bobs-cloudflare-mcp https://&lt;this-worker&gt;/mcp</code></pre>
+                <p>Add <code>--scope user</code> to make it available across all your projects instead of just the current one.</p>
+              </div>
+            </details>
+
+            <details class="client">
+              <summary class="client__summary">GitHub Copilot (VS Code)</summary>
+              <div class="client__body">
+                <p>Add an entry to your workspace <code>.vscode/mcp.json</code> (or via the Command Palette &rarr; <strong>MCP: Open User Configuration</strong> for a user-wide config):</p>
+                <pre><code>{
+  "servers": {
+    "bobs-cloudflare-mcp": {
+      "type": "http",
+      "url": "https://&lt;this-worker&gt;/mcp"
+    }
+  }
+}</code></pre>
+              </div>
+            </details>
+
+            <details class="client">
+              <summary class="client__summary">ChatGPT</summary>
+              <div class="client__body">
+                <p>Requires Developer Mode, which needs a Business/Enterprise/Edu plan (Pro is limited to read/fetch-only access; Free doesn't support custom connectors).</p>
+                <ol>
+                  <li><strong>Settings &rarr; Apps &rarr; Advanced settings</strong> &rarr; enable <strong>Developer mode</strong>.</li>
+                  <li><strong>Settings &rarr; Connectors &rarr; Create</strong>.</li>
+                  <li>Fill in a name and description, paste the MCP URL above, and set <strong>Authentication</strong> to <strong>None</strong>.</li>
+                </ol>
+              </div>
+            </details>
+
+            <details class="client">
+              <summary class="client__summary">Any other MCP client</summary>
+              <div class="client__body">
+                <p>Any client that speaks the MCP Streamable HTTP transport can connect directly to the <code>/mcp</code> URL above &mdash; there's no proprietary protocol or required client library.</p>
+              </div>
+            </details>
+          </div>
         </div>
       </section>
 

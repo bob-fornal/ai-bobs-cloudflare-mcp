@@ -1,6 +1,9 @@
-name = "bobs-cloudflare-mcp"
+name = "cloudflare-mcp"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
+# Required at runtime by the `agents` package's internal use of node:async_hooks —
+# our own Worker code does not use any Node built-ins (see SKILL_CLOUDFLARE_EDGE).
+compatibility_flags = ["nodejs_compat"]
 
 [[durable_objects.bindings]]
 name = "LEARNINGS_HUB"
