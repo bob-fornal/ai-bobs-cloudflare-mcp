@@ -101,7 +101,7 @@ Single DO instance, key/value storage:
 
 | Key | Type | Description |
 |---|---|---|
-| `content:markdown` | string | Full text of the **merged** Cloudflare Learnings document (generated from `content/learnings/*.md` + `manifest.json` at build time) |
+| `content:markdown` | string | Full text of the **merged** Cloudflare Learnings document (generated from `content/cloudflare_worker.agent.md` + `content/cloudflare/*.md` at build time) |
 | `content:html` | string | Full text of `index.html` |
 | `content:version` | string | Version/hash used to decide whether to reseed on deploy |
 
@@ -124,7 +124,7 @@ The multi-file source layout and cross-link rewriting are purely a build-time/au
 - **Runtime constraints:** Web Standard APIs only — no Node built-ins (`fs`, `path`, native `crypto`); no `process.env` (use the `env` object passed to `fetch`).
 - **MCP SDK:** Cloudflare `agents` package (`McpAgent`) plus `@modelcontextprotocol/sdk` types as needed.
 - **Durable Objects:** one class (`LearningsHub`), one singleton instance for the whole service. Needs a `new_sqlite_classes` (or `new_classes`) migration entry in `wrangler.toml`.
-- **Content build step:** a standalone script (`scripts/build-content.ts`, run via Node — this runs at build time on the developer/CI machine, not in the Worker runtime, so Node APIs are fine here) that merges `content/learnings/*.md` per `manifest.json`, rewrites cross-links to anchors, validates all links resolve, and writes `content/generated/cloudflare-learnings.md`. Wired in as a `predeploy`/`build` npm script so it always runs before `wrangler deploy`/`wrangler dev`.
+- **Content build step:** a standalone script (`scripts/build-content.ts`, run via Node — this runs at build time on the developer/CI machine, not in the Worker runtime, so Node APIs are fine here) that merges `content/cloudflare_worker.agent.md` + `content/cloudflare/NN-*.md` in numeric-prefix order, rewrites cross-links to anchors, validates all links resolve, and writes `content/generated/cloudflare-learnings.md`. Wired in as a `predeploy`/`build` npm script so it always runs before `wrangler deploy`/`wrangler dev`.
 - **Bundling:** `wrangler.toml` module rules (or equivalent) to inline the *generated* merged `.md` file and `index.html` as text at build time.
 - **CORS:** since MCP clients and browsers both hit this Worker, responses should include permissive CORS headers on the `/mcp` path so browser-based MCP clients aren't blocked; the `/` HTML path doesn't need CORS.
 
@@ -133,22 +133,22 @@ The multi-file source layout and cross-link rewriting are purely a build-time/au
 Before considering any deploy "done":
 
 1. `node scripts/build-content.ts` (or the wired-up `npm run build:content`) — confirm the merge succeeds, cross-links resolve, and `content/generated/cloudflare-learnings.md` looks correct (headings, anchors, TOC).
-2. Deliberately break a cross-link in one of the `content/learnings/*.md` files and confirm the build step fails with a clear error, then revert.
+2. Deliberately break a cross-link in one of the `content/cloudflare/*.md` files and confirm the build step fails with a clear error, then revert.
 3. `npx wrangler dev` — run locally.
 4. Browser check: hit `http://localhost:8787/` and confirm the HTML page renders.
 5. MCP check: use MCP Inspector (or equivalent) against `http://localhost:8787/mcp` to confirm `initialize`, `resources/list`, `resources/read`, `tools/list`, and `tools/call` all work and return the expected merged Markdown, with internal links intact.
-6. Content-update check: edit one file under `content/learnings/`, bump `CONTENT_VERSION`, redeploy, and confirm the resource/tool output reflects the change (proving the reseed-on-version-mismatch logic works).
+6. Content-update check: edit one file under `content/cloudflare/`, bump `CONTENT_VERSION`, redeploy, and confirm the resource/tool output reflects the change (proving the reseed-on-version-mismatch logic works).
 7. `wrangler deploy --dry-run` (or a real deploy to a preview environment) before shipping to production.
 
 ## 10. Open Questions
 
-- **Stale TOC links in `content/cloudflare_worker.agent.md`:** its links point at `sections/cloudflare/*.md`, but the files live at `content/cloudflare/*.md` directly. Since the build regenerates the TOC from disk anyway (§5.2), the simplest fix is to just drop the hand-written numbered list from that file and keep its intro prose — confirm that's fine, or say if the numbered list (with its per-section one-line descriptions) should be preserved/repaired and fed into the generated TOC instead of discarded.
-- What should the HTML landing page actually contain — just a description of the MCP service (name, how to connect), or should it also render the Markdown learnings content for human readers? *(Needs Bob's input before building the HTML; `content/index.html` doesn't exist yet.)*
-- Desired Worker subdomain/custom domain, if any (affects `wrangler.toml` `routes`/`workers.dev` config).
+- ~~Stale TOC links in `content/cloudflare_worker.agent.md`~~ — **Resolved:** hand-written numbered list dropped, intro prose kept, TOC is generated from disk.
+- ~~HTML landing page content~~ — **Resolved:** describes the service and MCP connection details (endpoint, resource, tool) plus a topics list; does not render the full Markdown inline. See `content/index.html`.
+- Desired Worker subdomain/custom domain, if any (affects `wrangler.toml` `routes`/`workers.dev` config). Defaulting to the standard `*.workers.dev` subdomain until specified.
 
 ## 11. Milestones
 
-1. Scaffold project: `wrangler.toml`, `src/index.ts`, `src/learnings-hub.ts`, `content/learnings/` with placeholder files + `manifest.json`, `content/index.html`.
+1. Scaffold project: `wrangler.toml`, `src/index.ts`, `src/learnings-hub.ts`, `content/cloudflare_worker.agent.md` + `content/cloudflare/*.md` (existing), `content/index.html` (existing).
 2. Implement `scripts/build-content.ts` (merge, link rewrite, validation) and wire it as a `predeploy`/`build` step.
 3. Implement DO seeding logic + storage schema, reading the generated merged Markdown.
 4. Implement MCP resource + tool registration.

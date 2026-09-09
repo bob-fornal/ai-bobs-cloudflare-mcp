@@ -1,0 +1,26 @@
+{
+  "name": "bobs-cloudflare-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Bob's Cloudflare MCP — serves Cloudflare Workers/Durable Objects learnings over MCP and as an HTML page, backed by a Durable Object.",
+  "scripts": {
+    "build:content": "tsx scripts/build-content.ts",
+    "predev": "npm run build:content",
+    "dev": "wrangler dev",
+    "predeploy": "npm run build:content",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "agents": "^0.20.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "wrangler": "^4.0.0"
+  }
+}
